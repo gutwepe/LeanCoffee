@@ -67,6 +67,8 @@ const FIELD_MAP = {
     email: 'Email',
     avatar: 'Avatar',
     role: 'Role',
+    externalId: 'ExternalId',
+    sessionIds: 'Sessions',
   },
 };
 
@@ -374,6 +376,31 @@ async function handleCreateComment(body) {
   return fromAirtableRecord(created, 'comment');
 }
 
+async function handleCreateUser(body) {
+  const { sessionId, sessionIds, ...rest } = body || {};
+  const payload = { ...rest };
+
+  if (sessionIds && !Array.isArray(sessionIds)) {
+    payload.sessionIds = [sessionIds];
+  } else if (sessionIds) {
+    payload.sessionIds = sessionIds;
+  }
+
+  if (sessionId) {
+    payload.sessionIds = Array.isArray(payload.sessionIds)
+      ? Array.from(new Set([...payload.sessionIds, sessionId]))
+      : [sessionId];
+  }
+
+  const fields = toAirtableFields(payload, 'user');
+  if (!fields.Name) {
+    fields.Name = rest?.name || 'Guest';
+  }
+
+  const created = await createRecord(env.USERS_TABLE_ID, fields);
+  return fromAirtableRecord(created, 'user');
+}
+
 async function fetchVoteLimit(sessionId) {
   const sessionRecord = await getRecord(env.SESSIONS_TABLE_ID, sessionId);
   const boardIdField = sessionRecord.fields?.Board;
@@ -400,9 +427,10 @@ async function handleCreateVote(body) {
   }
 
   const { limit } = await fetchVoteLimit(sessionId);
+  let existingVotes = [];
 
   if (Number.isFinite(limit)) {
-    const existingVotes = await listRecords(env.VOTES_TABLE_ID, {
+    existingVotes = await listRecords(env.VOTES_TABLE_ID, {
       filterByFormula: `AND(${linkFilter('Session', sessionId)}, ${linkFilter('User', userId)})`,
     });
     if (existingVotes.length >= limit) {
@@ -424,15 +452,33 @@ async function handleCreateVote(body) {
     throw new Error('topicId is required to cast a vote');
   }
   const created = await createRecord(env.VOTES_TABLE_ID, fields);
-  return fromAirtableRecord(created, 'vote');
+  const vote = fromAirtableRecord(created, 'vote');
+  const remainingVotes = Number.isFinite(limit)
+    ? Math.max(0, limit - (existingVotes.length + 1))
+    : Infinity;
+  return { vote, remainingVotes };
 }
 
 async function handleDeleteVote(voteId) {
   if (!voteId) {
     throw new Error('Vote ID is required to retract a vote');
   }
+  const voteRecord = await getRecord(env.VOTES_TABLE_ID, voteId);
+  const vote = fromAirtableRecord(voteRecord, 'vote');
   await deleteRecord(env.VOTES_TABLE_ID, voteId);
-  return { id: voteId };
+
+  let remainingVotes = Infinity;
+  if (vote.sessionId && vote.userId) {
+    const { limit } = await fetchVoteLimit(vote.sessionId);
+    if (Number.isFinite(limit)) {
+      const currentVotes = await listRecords(env.VOTES_TABLE_ID, {
+        filterByFormula: `AND(${linkFilter('Session', vote.sessionId)}, ${linkFilter('User', vote.userId)})`,
+      });
+      remainingVotes = Math.max(0, limit - currentVotes.length);
+    }
+  }
+
+  return { id: voteId, vote, remainingVotes };
 }
 
 function notFound() {
@@ -499,6 +545,13 @@ exports.handler = async (event) => {
         if (method === 'DELETE') {
           const result = await handleDeleteVote(resourceId);
           return ok(result, 200);
+        }
+        break;
+      case 'users':
+        if (method === 'POST') {
+          const body = parseBody(event);
+          const user = await handleCreateUser(body);
+          return ok(user, 201);
         }
         break;
       case 'comments':
