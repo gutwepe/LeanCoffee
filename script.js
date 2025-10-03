@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'lean-coffee-state-v1';
 const VOTE_KEY = 'lean-coffee-votes-v1';
 const DEFAULT_TIMER = 5 * 60; // seconds
+const MAX_COFFEE_ICONS = 5;
 
 const topicTemplate = document.getElementById('topicTemplate');
 const todoColumn = document.getElementById('todoColumn');
@@ -267,6 +268,38 @@ function renderBoard() {
   updateTimerUI();
 }
 
+function renderCoffeeStack(container, votes) {
+  container.innerHTML = '';
+  container.dataset.count = String(votes);
+
+  if (votes <= 0) {
+    container.classList.add('is-empty');
+    container.append(createCoffeeIcon());
+    return;
+  }
+
+  container.classList.remove('is-empty');
+  const iconCount = Math.min(votes, MAX_COFFEE_ICONS);
+
+  for (let i = 0; i < iconCount; i += 1) {
+    container.append(createCoffeeIcon());
+  }
+
+  if (votes > MAX_COFFEE_ICONS) {
+    const overflow = document.createElement('span');
+    overflow.className = 'coffee-overflow';
+    overflow.textContent = `+${votes - MAX_COFFEE_ICONS}`;
+    container.append(overflow);
+  }
+}
+
+function createCoffeeIcon() {
+  const icon = document.createElement('span');
+  icon.className = 'coffee-icon';
+  icon.textContent = '☕';
+  return icon;
+}
+
 function populateColumn(column, topics) {
   column.innerHTML = '';
   if (!topics.length) {
@@ -284,6 +317,8 @@ function populateColumn(column, topics) {
     const metaEl = card.querySelector('.topic-meta');
     const voteBtn = card.querySelector('.vote-btn');
     const voteCount = card.querySelector('.vote-count');
+    const coffeeStack = card.querySelector('.coffee-stack');
+    const voteLabel = card.querySelector('.vote-label');
     const notesInput = card.querySelector('.notes-input');
     const saveNotesBtn = card.querySelector('.save-notes');
     const actions = card.querySelector('.topic-actions');
@@ -297,13 +332,23 @@ function populateColumn(column, topics) {
       descriptionEl.hidden = true;
     }
     metaEl.textContent = `${topic.votes} vote${topic.votes === 1 ? '' : 's'} • Added ${formatRelativeDate(topic.createdAt)}`;
-    voteCount.textContent = topic.votes;
+    voteCount.textContent = `${topic.votes} ${topic.votes === 1 ? 'vote' : 'votes'}`;
+    voteCount.setAttribute('aria-label', `${topic.votes} ${topic.votes === 1 ? 'vote' : 'votes'}`);
+    renderCoffeeStack(coffeeStack, topic.votes);
 
-    if (votingState.topics[topic.id]) {
+    const hasVoted = Boolean(votingState.topics[topic.id]);
+    const limitReached = votingState.used >= votingState.limit && !hasVoted;
+
+    if (hasVoted) {
       card.classList.add('voted');
     } else {
       card.classList.remove('voted');
     }
+
+    voteLabel.textContent = hasVoted ? 'Voted' : 'Vote';
+    voteBtn.setAttribute('aria-pressed', hasVoted);
+    voteBtn.setAttribute('aria-label', `${hasVoted ? 'Remove your vote from' : 'Vote for'} ${topic.title}`);
+    voteBtn.title = limitReached ? 'Vote limit reached' : hasVoted ? 'Remove your vote' : 'Cast your vote';
 
     if (state.activeTopicId === topic.id) {
       card.classList.add('active');
@@ -324,7 +369,7 @@ function populateColumn(column, topics) {
     });
 
     voteBtn.addEventListener('click', () => toggleVote(topic));
-    voteBtn.disabled = !votingState.topics[topic.id] && votingState.used >= votingState.limit;
+    voteBtn.disabled = limitReached;
 
     const actionButtons = getActionsForTopic(topic);
     actionButtons.forEach((button) => actions.append(button));

@@ -246,30 +246,71 @@ textarea:focus {
   background: rgba(59, 130, 246, 0.12);
   color: var(--accent);
   border-radius: 999px;
-  padding: 4px 10px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
+}
+
+.topic-card.voted .vote-chip {
+  background: rgba(59, 130, 246, 0.22);
 }
 
 .vote-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: none;
   background: transparent;
   color: inherit;
   font-weight: 600;
   cursor: pointer;
+  padding: 0 2px;
+}
+
+.vote-btn:hover:not([disabled]) {
+  color: var(--accent-dark);
 }
 
 .vote-btn[disabled] {
   cursor: not-allowed;
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
-.vote-icon {
-  font-size: 1.1rem;
+.vote-btn[aria-pressed="true"] {
+  color: var(--accent-dark);
+}
+
+.vote-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vote-count {
+  font-size: 0.85rem;
+  color: var(--accent-dark);
+  font-variant-numeric: tabular-nums;
+}
+
+.coffee-stack {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.coffee-icon {
+  font-size: 1.05rem;
   line-height: 1;
+}
+
+.coffee-stack.is-empty .coffee-icon {
+  opacity: 0.35;
+}
+
+.coffee-overflow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--accent-dark);
 }
 
 .notes {
