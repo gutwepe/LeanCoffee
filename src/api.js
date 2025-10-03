@@ -19,7 +19,7 @@ function resolveBaseUrl(baseUrl) {
 
 function buildUrl(baseUrl, path, query) {
   const normalisedBase = resolveBaseUrl(baseUrl);
-  const normalisedPath = path.startsWith('/') ? path : `/${path}`;
+  const normalisedPath = path.replace(/^\/+/, '');
   const url = new URL(normalisedPath, `${normalisedBase}/`);
 
   if (query) {
