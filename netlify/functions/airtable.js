@@ -264,7 +264,12 @@ function normalisePath(event) {
   const path = event.path || '';
   const prefixMatch = path.match(/\.netlify\/functions\/[^/]+/);
   if (!prefixMatch) return path;
-  return path.slice(prefixMatch[0].length);
+  const start = prefixMatch.index ?? 0;
+  const trimmed = path.slice(start + prefixMatch[0].length);
+  if (!trimmed) {
+    return '';
+  }
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
 function linkFilter(field, id) {
