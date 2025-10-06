@@ -29,6 +29,9 @@ const FIELD_MAP = {
     description: 'Description',
     voteLimit: 'VoteLimit',
     state: 'State',
+    themeMode: 'ThemeMode',
+    accentColor: 'AccentColor',
+    announcement: 'Announcement',
   },
   session: {
     code: 'Code',
@@ -270,7 +273,13 @@ function normalisePath(event) {
   if (event.rawUrl && !candidates.includes(event.rawUrl)) {
     candidates.push(event.rawUrl);
   }
+  const originalPathHeader =
+    event.headers?.['x-nf-original-pathname'] || event.headers?.['x-nf-original-path'];
+  if (originalPathHeader && !candidates.includes(originalPathHeader)) {
+    candidates.push(originalPathHeader);
+  }
 
+  let emptyMatch = null;
   for (const candidate of candidates) {
     const prefixMatch = candidate.match(/\.netlify\/functions\/[^/]+/);
     if (!prefixMatch) {
@@ -290,9 +299,14 @@ function normalisePath(event) {
       trimmed = trimmed.slice(0, fragmentIndex);
     }
     if (!trimmed) {
-      return '';
+      emptyMatch = '';
+      continue;
     }
     return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  }
+
+  if (emptyMatch !== null) {
+    return emptyMatch;
   }
 
   return candidates[0] || '';
@@ -396,6 +410,15 @@ async function handleUpdateTopic(topicId, body) {
   const fields = toAirtableFields(body, 'topic');
   const updated = await updateRecord(env.TOPICS_TABLE_ID, topicId, fields);
   return fromAirtableRecord(updated, 'topic');
+}
+
+async function handleUpdateBoard(boardId, body) {
+  if (!boardId) {
+    throw new Error('Board ID is required for update');
+  }
+  const fields = toAirtableFields(body, 'board');
+  const updated = await updateRecord(env.BOARDS_TABLE_ID, boardId, fields);
+  return fromAirtableRecord(updated, 'board');
 }
 
 async function handleCreateComment(body) {
@@ -558,6 +581,13 @@ exports.handler = async (event) => {
           const body = parseBody(event);
           const topic = await handleUpdateTopic(resourceId, body);
           return ok(topic);
+        }
+        break;
+      case 'boards':
+        if (method === 'PATCH') {
+          const body = parseBody(event);
+          const board = await handleUpdateBoard(resourceId, body);
+          return ok(board);
         }
         break;
       case 'votes':
