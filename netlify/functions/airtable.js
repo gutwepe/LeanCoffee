@@ -602,4 +602,5 @@ exports.handler = async (event) => {
   }
 };
 
+exports.AIRTABLE_API_BASE = AIRTABLE_API_BASE;
 exports._normalisePath = normalisePath;
