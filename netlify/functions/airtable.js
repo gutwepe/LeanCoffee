@@ -260,6 +260,8 @@ function parseBody(event) {
   }
 }
 
+const FUNCTION_PREFIX = '/.netlify/functions/airtable';
+
 function normalisePath(event) {
   const candidates = [];
   if (event.path) {
