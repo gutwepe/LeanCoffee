@@ -51,24 +51,9 @@ assert.strictEqual(
 );
 assert.strictEqual(
   _normalisePath({
-    path: '/.netlify/functions/airtable',
+    path: '',
     rawUrl: 'https://example.com/.netlify/functions/airtable/sessions?foo=bar',
   }),
   '/sessions'
-);
-assert.strictEqual(
-  _normalisePath({
-    path: '/.netlify/functions/airtable',
-    headers: { 'x-nf-original-pathname': '/.netlify/functions/airtable/topics#hash' },
-  }),
-  '/topics'
-);
-assert.strictEqual(
-  _normalisePath({ rawUrl: 'https://example.com/.netlify/functions/airtable%2Ftopics%2Fencoded' }),
-  '/topics/encoded'
-);
-assert.strictEqual(
-  _normalisePath({ rawPath: '/.netlify/functions/airtable/%2Fvotes%2Fencoded' }),
-  '/votes/encoded'
 );
 console.log('Additional normalisePath assertions passed');

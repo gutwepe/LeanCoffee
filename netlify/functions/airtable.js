@@ -263,100 +263,36 @@ function parseBody(event) {
 const FUNCTION_PREFIX = '/.netlify/functions/airtable';
 
 function normalisePath(event) {
-  const seen = new Set();
   const candidates = [];
-  const addCandidate = (value) => {
-    if (!value || typeof value !== 'string' || seen.has(value)) {
-      return;
-    }
-    seen.add(value);
-    candidates.push(value);
-  };
-
-  addCandidate(event.rawUrl);
-  addCandidate(event.rawPath);
-  addCandidate(event.path);
-
-  const headers = event.headers || {};
-  addCandidate(headers['x-nf-original-pathname']);
-  addCandidate(headers['x-nf-original-uri']);
-  addCandidate(headers['x-original-uri']);
-
-  const requestContext = event.requestContext || {};
-  addCandidate(requestContext.path);
-  if (requestContext.http) {
-    addCandidate(requestContext.http.path);
-    addCandidate(requestContext.http.rawPath);
+  if (event.path) {
+    candidates.push(event.path);
   }
-
-  let sawRootMatch = false;
+  if (event.rawUrl && !candidates.includes(event.rawUrl)) {
+    candidates.push(event.rawUrl);
+  }
 
   for (const candidate of candidates) {
-    let working = candidate;
-    if (working.includes('://')) {
-      try {
-        const url = new URL(working);
-        working = url.pathname;
-      } catch (error) {
-        const schemeIndex = working.indexOf('://');
-        if (schemeIndex !== -1) {
-          const pathStart = working.indexOf('/', schemeIndex + 3);
-          working = pathStart !== -1 ? working.slice(pathStart) : '';
-        }
-      }
-    }
-
-    if (!working) {
+    const prefixMatch = candidate.match(/\.netlify\/functions\/[^/]+/);
+    if (!prefixMatch) {
       continue;
     }
-
-    const prefixIndex = working.indexOf(FUNCTION_PREFIX);
-    if (prefixIndex === -1) {
+    const matchText = prefixMatch[0];
+    const start =
+      typeof prefixMatch.index === 'number'
+        ? prefixMatch.index
+        : candidate.indexOf(matchText);
+    if (start === -1) {
       continue;
     }
-
-    let remainder = working.slice(prefixIndex + FUNCTION_PREFIX.length);
-    if (!remainder) {
-      sawRootMatch = true;
-      continue;
-    }
-
-    const fragmentIndex = remainder.search(/[?#]/);
+    let trimmed = candidate.slice(start + matchText.length);
+    const fragmentIndex = trimmed.search(/[?#]/);
     if (fragmentIndex !== -1) {
-      remainder = remainder.slice(0, fragmentIndex);
+      trimmed = trimmed.slice(0, fragmentIndex);
     }
-
-    remainder = remainder.trim();
-    if (!remainder) {
-      sawRootMatch = true;
-      continue;
+    if (!trimmed) {
+      return '';
     }
-
-    const withoutLeading = remainder.replace(/^\/+/, '');
-    let decoded = withoutLeading;
-    try {
-      decoded = decodeURIComponent(withoutLeading);
-    } catch (error) {
-      // ignore decoding failures and fall back to the raw remainder
-    }
-
-    decoded = decoded.replace(/^\/+/, '');
-    if (!decoded) {
-      sawRootMatch = true;
-      continue;
-    }
-
-    const normalised = `/${decoded}`;
-    if (normalised === '/') {
-      sawRootMatch = true;
-      continue;
-    }
-
-    return normalised;
-  }
-
-  if (sawRootMatch) {
-    return '';
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   }
 
   return candidates[0] || '';
@@ -667,4 +603,3 @@ exports.handler = async (event) => {
 };
 
 exports._normalisePath = normalisePath;
-exports.AIRTABLE_API_BASE = AIRTABLE_API_BASE;
