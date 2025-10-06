@@ -1,7 +1,11 @@
-const STORAGE_KEY = 'lean-coffee-state-v1';
-const VOTE_KEY = 'lean-coffee-votes-v1';
+const STORAGE_KEY_BASE = 'lean-coffee-state-v1';
+const VOTE_KEY_BASE = 'lean-coffee-votes-v1';
+const LAST_SESSION_KEY = 'lean-coffee-last-session';
+const THEME_PREFERENCE_KEY = 'lean-coffee-theme-preference';
+const ACCENT_KEY = 'lean-coffee-accent-color';
 const DEFAULT_TIMER = 5 * 60; // seconds
 const MAX_COFFEE_ICONS = 5;
+const DEFAULT_SESSION_ID = 'personal';
 
 const topicTemplate = document.getElementById('topicTemplate');
 const todoColumn = document.getElementById('todoColumn');
@@ -22,11 +26,28 @@ const timeboxSelect = document.getElementById('timeboxLength');
 const timeboxDialog = document.getElementById('timeboxDialog');
 const extendDiscussionBtn = document.getElementById('extendDiscussion');
 const moveOnBtn = document.getElementById('moveOn');
+const themeToggle = document.getElementById('darkModeToggle');
+const themeCaption = document.getElementById('darkModeCaption');
+const themePicker = document.getElementById('themePicker');
+const themeColorInput = document.getElementById('themeColor');
+const announcementButton = document.getElementById('announcementBoard');
+const startSessionBtn = document.getElementById('startSession');
+const sessionShare = document.getElementById('sessionShare');
+const sessionCodeDisplay = document.getElementById('sessionCodeDisplay');
+const shareLinkInput = document.getElementById('shareLink');
+const copyShareLinkBtn = document.getElementById('copyShareLink');
+const joinForm = document.getElementById('joinForm');
+const joinCodeInput = document.getElementById('joinCode');
+const sessionStatus = document.getElementById('sessionStatus');
+const sessionDetail = document.getElementById('sessionDetail');
 
 let timerInterval = null;
+let currentSessionId = determineInitialSessionId();
+let state = loadState();
+let votingState = loadVotingState();
 
-const state = loadState();
-const votingState = loadVotingState();
+applyStoredAccent();
+applyStoredTheme();
 
 init();
 
@@ -34,10 +55,14 @@ function init() {
   voteBudgetInput.value = votingState.limit;
   updateVotesRemaining();
   renderBoard();
+  updateTimerUI();
+  syncTimeboxSelect();
+  updateSessionUI();
+  updateThemeToggle();
 
   topicForm.addEventListener('submit', handleTopicSubmit);
   voteBudgetInput.addEventListener('change', handleBudgetChange);
-  resetButton.addEventListener('click', resetSession);
+  resetButton.addEventListener('click', () => resetSession());
   exportButton.addEventListener('click', exportSession);
 
   startTimerBtn.addEventListener('click', startTimer);
@@ -57,58 +82,114 @@ function init() {
     completeActiveTopic();
   });
 
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleThemeMode);
+  }
+  if (themePicker && themeColorInput) {
+    themePicker.addEventListener('click', () => themeColorInput.click());
+    themeColorInput.addEventListener('input', handleThemeColorChange);
+  }
+  if (announcementButton) {
+    announcementButton.addEventListener('click', () => {
+      alert('Pin wins, reminders, or kudos here to keep everyone aligned.');
+    });
+  }
+  if (startSessionBtn) {
+    startSessionBtn.addEventListener('click', handleStartSession);
+  }
+  if (joinForm) {
+    joinForm.addEventListener('submit', handleJoinSession);
+  }
+  if (copyShareLinkBtn) {
+    copyShareLinkBtn.addEventListener('click', copyShareLink);
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && timerInterval) {
       pauseTimer();
     }
   });
-
-  updateTimerUI();
-  syncTimeboxSelect();
 }
 
-function loadState() {
+function determineInitialSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = sanitizeSessionId(params.get('session'));
+  if (fromUrl) {
+    return fromUrl;
+  }
+  const stored = localStorage.getItem(LAST_SESSION_KEY);
+  if (stored) {
+    const cleaned = sanitizeSessionId(stored);
+    if (cleaned) {
+      return cleaned;
+    }
+  }
+  return DEFAULT_SESSION_ID;
+}
+
+function sanitizeSessionId(value) {
+  if (!value || typeof value !== 'string') return '';
+  return value.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 16);
+}
+
+function boardStorageKey(sessionId = currentSessionId) {
+  return `${STORAGE_KEY_BASE}:${sessionId}`;
+}
+
+function voteStorageKey(sessionId = currentSessionId) {
+  return `${VOTE_KEY_BASE}:${sessionId}`;
+}
+
+function createEmptyState() {
+  return {
+    topics: [],
+    activeTopicId: null,
+    timerRemaining: DEFAULT_TIMER,
+    timerDefault: DEFAULT_TIMER,
+  };
+}
+
+function createDefaultVotingState() {
+  return {
+    limit: 5,
+    used: 0,
+    topics: {},
+  };
+}
+
+function loadState(sessionId = currentSessionId) {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(boardStorageKey(sessionId));
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
         topics: parsed.topics ?? [],
         activeTopicId: parsed.activeTopicId ?? null,
         timerRemaining: parsed.timerRemaining ?? DEFAULT_TIMER,
-        timerDefault: parsed.timerDefault ?? DEFAULT_TIMER
+        timerDefault: parsed.timerDefault ?? DEFAULT_TIMER,
       };
     }
   } catch (error) {
     console.warn('Unable to load saved state', error);
   }
-  return {
-    topics: [],
-    activeTopicId: null,
-    timerRemaining: DEFAULT_TIMER,
-    timerDefault: DEFAULT_TIMER
-  };
+  return createEmptyState();
 }
 
-function loadVotingState() {
+function loadVotingState(sessionId = currentSessionId) {
   try {
-    const stored = localStorage.getItem(VOTE_KEY);
+    const stored = localStorage.getItem(voteStorageKey(sessionId));
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
         limit: parsed.limit ?? 5,
         used: parsed.used ?? 0,
-        topics: parsed.topics ?? {}
+        topics: parsed.topics ?? {},
       };
     }
   } catch (error) {
     console.warn('Unable to load voting state', error);
   }
-  return {
-    limit: 5,
-    used: 0,
-    topics: {}
-  };
+  return createDefaultVotingState();
 }
 
 function persistState() {
@@ -116,10 +197,10 @@ function persistState() {
     topics: state.topics,
     activeTopicId: state.activeTopicId,
     timerRemaining: state.timerRemaining,
-    timerDefault: state.timerDefault
+    timerDefault: state.timerDefault,
   };
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(boardStorageKey(), JSON.stringify(data));
   } catch (error) {
     console.warn('Unable to save board state', error);
   }
@@ -127,7 +208,7 @@ function persistState() {
 
 function persistVotingState() {
   try {
-    localStorage.setItem(VOTE_KEY, JSON.stringify(votingState));
+    localStorage.setItem(voteStorageKey(), JSON.stringify(votingState));
   } catch (error) {
     console.warn('Unable to save voting state', error);
   }
@@ -148,7 +229,7 @@ function handleTopicSubmit(event) {
     votes: 0,
     status: 'todo',
     createdAt: new Date().toISOString(),
-    notes: ''
+    notes: '',
   };
 
   state.topics.push(topic);
@@ -178,15 +259,13 @@ function handleBudgetChange() {
   updateVotesRemaining();
 }
 
-function resetSession() {
-  if (!confirm('Reset the session? All topics, votes, and notes will be removed.')) {
+function resetSession(options = {}) {
+  const { skipConfirm = false } = options;
+  if (!skipConfirm && !confirm('Reset the session? All topics, votes, and notes will be removed.')) {
     return;
   }
-  state.topics = [];
-  state.activeTopicId = null;
-  state.timerRemaining = state.timerDefault = DEFAULT_TIMER;
-  votingState.used = 0;
-  votingState.topics = {};
+  state = createEmptyState();
+  votingState = createDefaultVotingState();
   persistState();
   persistVotingState();
   stopTimer();
@@ -205,7 +284,7 @@ function exportSession() {
   const sections = {
     todo: ['## To Discuss', ''],
     doing: ['## Discussing', ''],
-    done: ['## Discussed', '']
+    done: ['## Discussed', ''],
   };
 
   for (const topic of state.topics) {
@@ -227,12 +306,13 @@ function exportSession() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `lean-coffee-${Date.now()}.md`;
+  anchor.download = `lean-coffee-${currentSessionId}-${Date.now()}.md`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
 
 function updateVotesRemaining() {
+  if (!votesRemainingEl) return;
   const remaining = Math.max(votingState.limit - votingState.used, 0);
   votesRemainingEl.textContent = remaining;
 }
@@ -241,7 +321,7 @@ function renderBoard() {
   const topicsByStatus = {
     todo: [],
     doing: [],
-    done: []
+    done: [],
   };
 
   for (const topic of state.topics) {
@@ -569,7 +649,6 @@ function formatRelativeDate(isoDate) {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 }
 
-// Accessibility: close dialog with Escape key on older browsers.
 if (timeboxDialog) {
   timeboxDialog.addEventListener('cancel', (event) => {
     event.preventDefault();
@@ -602,5 +681,206 @@ function syncTimeboxSelect() {
     customOption.textContent = `${Math.round(state.timerDefault / 60)} min`;
     timeboxSelect.append(customOption);
     timeboxSelect.value = customOption.value;
+  }
+}
+
+function toggleThemeMode() {
+  document.body.classList.toggle('theme-light');
+  const mode = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+  try {
+    localStorage.setItem(THEME_PREFERENCE_KEY, mode);
+  } catch (error) {
+    console.warn('Unable to persist theme preference', error);
+  }
+  updateThemeToggle();
+}
+
+function applyStoredTheme() {
+  const stored = localStorage.getItem(THEME_PREFERENCE_KEY);
+  if (stored === 'light') {
+    document.body.classList.add('theme-light');
+  } else {
+    document.body.classList.remove('theme-light');
+  }
+}
+
+function updateThemeToggle() {
+  if (!themeToggle) return;
+  const isDark = !document.body.classList.contains('theme-light');
+  themeToggle.setAttribute('aria-pressed', String(isDark));
+  const toggleSwitch = themeToggle.querySelector('.toggle-switch');
+  if (toggleSwitch) {
+    toggleSwitch.classList.toggle('is-active', isDark);
+  }
+  if (themeCaption) {
+    themeCaption.textContent = isDark ? 'Cozy lighting on' : 'Bright mode engaged';
+  }
+}
+
+function handleThemeColorChange(event) {
+  const value = event.target.value;
+  applyAccent(value);
+  try {
+    localStorage.setItem(ACCENT_KEY, value);
+  } catch (error) {
+    console.warn('Unable to save accent color', error);
+  }
+}
+
+function applyStoredAccent() {
+  const stored = localStorage.getItem(ACCENT_KEY);
+  if (stored) {
+    applyAccent(stored);
+    if (themeColorInput) {
+      themeColorInput.value = stored;
+    }
+  }
+}
+
+function applyAccent(color) {
+  if (!color) return;
+  document.documentElement.style.setProperty('--accent', color);
+  document.documentElement.style.setProperty('--accent-soft', hexToRgba(color, 0.25));
+}
+
+function hexToRgba(hex, alpha = 1) {
+  let normalized = hex;
+  if (normalized.startsWith('#')) {
+    normalized = normalized.slice(1);
+  }
+  if (normalized.length === 3) {
+    normalized = normalized.split('').map((char) => char + char).join('');
+  }
+  const value = parseInt(normalized, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function handleStartSession() {
+  const newId = createSessionCode();
+  setSessionId(newId, { newSession: true, announcement: 'Session created! Share the code below to invite your crew.' });
+}
+
+function handleJoinSession(event) {
+  event.preventDefault();
+  const code = sanitizeSessionId(joinCodeInput.value);
+  if (!code) {
+    joinCodeInput.focus();
+    return;
+  }
+  setSessionId(code, { announcement: `Joined ${formatSessionCode(code)}. Collaborate away!` });
+  joinCodeInput.value = '';
+}
+
+function createSessionCode() {
+  const prefixes = ['brew', 'foam', 'roast', 'steam', 'press', 'vibe'];
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const suffix = Math.random().toString(36).slice(2, 6);
+  return `${prefix}-${suffix}`;
+}
+
+function setSessionId(newId, { newSession = false, announcement } = {}) {
+  const sessionId = sanitizeSessionId(newId) || DEFAULT_SESSION_ID;
+  const isSameSession = sessionId === currentSessionId;
+  currentSessionId = sessionId;
+  try {
+    localStorage.setItem(LAST_SESSION_KEY, currentSessionId);
+  } catch (error) {
+    console.warn('Unable to save session preference', error);
+  }
+  updateSessionUrl();
+
+  if (newSession || !isSameSession) {
+    if (newSession) {
+      state = createEmptyState();
+      votingState = createDefaultVotingState();
+      persistState();
+      persistVotingState();
+    } else {
+      state = loadState();
+      votingState = loadVotingState();
+    }
+  }
+
+  stopTimer();
+  renderBoard();
+  updateTimerUI();
+  syncTimeboxSelect();
+  updateVotesRemaining();
+  updateSessionUI(announcement);
+}
+
+function updateSessionUrl() {
+  const url = new URL(window.location.href);
+  if (currentSessionId === DEFAULT_SESSION_ID) {
+    url.searchParams.delete('session');
+  } else {
+    url.searchParams.set('session', currentSessionId);
+  }
+  window.history.replaceState({}, '', url);
+}
+
+function updateSessionUI(message) {
+  if (!sessionStatus || !sessionDetail) return;
+  if (currentSessionId === DEFAULT_SESSION_ID) {
+    sessionStatus.textContent = 'You\'re working solo.';
+    sessionDetail.textContent = 'Start a session to invite collaborators or join with a code.';
+    if (sessionShare) {
+      sessionShare.hidden = true;
+    }
+    if (sessionCodeDisplay) {
+      sessionCodeDisplay.textContent = '—';
+    }
+    if (shareLinkInput) {
+      shareLinkInput.value = '';
+    }
+  } else {
+    sessionStatus.textContent = message || `Session ${formatSessionCode(currentSessionId)} is live.`;
+    sessionDetail.textContent = 'Share the code or link so teammates can join instantly.';
+    if (sessionShare) {
+      sessionShare.hidden = false;
+    }
+    if (sessionCodeDisplay) {
+      sessionCodeDisplay.textContent = formatSessionCode(currentSessionId);
+    }
+    updateShareLink();
+  }
+}
+
+function formatSessionCode(sessionId) {
+  return sessionId.toUpperCase();
+}
+
+function updateShareLink() {
+  if (!shareLinkInput) return;
+  const url = new URL(window.location.href);
+  if (currentSessionId === DEFAULT_SESSION_ID) {
+    url.searchParams.delete('session');
+  } else {
+    url.searchParams.set('session', currentSessionId);
+  }
+  shareLinkInput.value = url.toString();
+}
+
+function copyShareLink() {
+  if (!shareLinkInput) return;
+  shareLinkInput.select();
+  shareLinkInput.setSelectionRange(0, shareLinkInput.value.length);
+  const shareText = shareLinkInput.value;
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(shareText).then(() => {
+      copyShareLinkBtn.textContent = 'Copied!';
+      copyShareLinkBtn.disabled = true;
+      setTimeout(() => {
+        copyShareLinkBtn.textContent = 'Copy';
+        copyShareLinkBtn.disabled = false;
+      }, 1200);
+    }).catch(() => {
+      document.execCommand('copy');
+    });
+  } else {
+    document.execCommand('copy');
   }
 }
