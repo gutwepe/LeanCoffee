@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lean Coffee Board</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Lean Coffee Board</h1>
+      <p class="tagline">Plan discussions collaboratively, vote together, and keep conversations focused.</p>
+    </div>
+    <div class="session-controls">
+      <label class="vote-budget" for="voteBudget">Vote budget per participant</label>
+      <input type="number" id="voteBudget" min="1" max="20" value="5" />
+      <button id="resetSession" class="secondary">Reset Session</button>
+      <button id="exportSession" class="secondary">Export Notes</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="create-topic">
+      <h2>Propose a topic</h2>
+      <form id="topicForm" autocomplete="off">
+        <div class="field">
+          <label for="topicTitle">Title</label>
+          <input type="text" id="topicTitle" name="title" placeholder="e.g. How do we improve release quality?" required />
+        </div>
+        <div class="field">
+          <label for="topicDescription">Context (optional)</label>
+          <textarea id="topicDescription" name="description" rows="2" placeholder="Add background, goals, or a guiding question"></textarea>
+        </div>
+        <button type="submit" class="primary">Add topic</button>
+      </form>
+      <p class="vote-availability">Remaining votes for you: <span id="votesRemaining">5</span></p>
+    </section>
+
+    <section class="board" aria-label="Lean coffee board">
+      <article class="column" aria-labelledby="todoHeading">
+        <header>
+          <h2 id="todoHeading">To Discuss</h2>
+          <p class="column-subtitle">Topics proposed by the group</p>
+        </header>
+        <div class="column-content" id="todoColumn" role="list"></div>
+      </article>
+
+      <article class="column" aria-labelledby="doingHeading">
+        <header>
+          <h2 id="doingHeading">Discussing</h2>
+          <div class="active-topic" id="activeTopicPanel" hidden>
+            <span class="active-label">Timer</span>
+            <span id="timerDisplay" aria-live="polite">05:00</span>
+            <label class="timebox-picker" for="timeboxLength">
+              <span>Timebox length</span>
+              <select id="timeboxLength">
+                <option value="180">3 min</option>
+                <option value="300" selected>5 min</option>
+                <option value="420">7 min</option>
+                <option value="600">10 min</option>
+              </select>
+            </label>
+            <div class="timer-controls">
+              <button id="startTimer" class="primary">Start</button>
+              <button id="pauseTimer" class="secondary">Pause</button>
+              <button id="resetTimer" class="secondary">Reset</button>
+              <button id="extendTimer" class="secondary">+2 min</button>
+            </div>
+          </div>
+        </header>
+        <div class="column-content" id="doingColumn" role="list"></div>
+      </article>
+
+      <article class="column" aria-labelledby="doneHeading">
+        <header>
+          <h2 id="doneHeading">Discussed</h2>
+          <p class="column-subtitle">Capture decisions, insights, and follow-up actions</p>
+        </header>
+        <div class="column-content" id="doneColumn" role="list"></div>
+      </article>
+    </section>
+  </main>
+
+  <template id="topicTemplate">
+    <article class="topic-card" role="listitem">
+      <header class="topic-header">
+        <h3 class="topic-title"></h3>
+        <div class="vote-chip" aria-live="polite">
+          <button class="vote-btn" type="button" title="Toggle vote" aria-pressed="false">
+            <span class="vote-label">Vote</span>
+            <span class="coffee-stack" aria-hidden="true"></span>
+            <span class="vote-count" aria-live="polite">0</span>
+          </button>
+        </div>
+      </header>
+      <p class="topic-description"></p>
+      <p class="topic-meta"></p>
+      <div class="notes">
+        <label>Notes &amp; outcomes</label>
+        <textarea class="notes-input" rows="3" placeholder="Capture key takeaways or next steps"></textarea>
+        <button type="button" class="save-notes secondary">Save notes</button>
+      </div>
+      <div class="topic-actions"></div>
+    </article>
+  </template>
+
+  <dialog id="timeboxDialog" class="modal">
+    <div class="modal-content">
+      <h2>Timebox finished</h2>
+      <p>Should we keep going on this topic?</p>
+      <div class="modal-actions">
+        <button id="extendDiscussion" class="primary">👍 Continue</button>
+        <button id="moveOn" class="secondary">➡️ Move on</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="script.js" type="module"></script>
+</body>
+</html>
