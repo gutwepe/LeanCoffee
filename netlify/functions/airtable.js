@@ -261,15 +261,39 @@ function parseBody(event) {
 }
 
 function normalisePath(event) {
-  const path = event.path || '';
-  const prefixMatch = path.match(/\.netlify\/functions\/[^/]+/);
-  if (!prefixMatch) return path;
-  const start = prefixMatch.index ?? 0;
-  const trimmed = path.slice(start + prefixMatch[0].length);
-  if (!trimmed) {
-    return '';
+  const candidates = [];
+  if (event.path) {
+    candidates.push(event.path);
   }
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  if (event.rawUrl && !candidates.includes(event.rawUrl)) {
+    candidates.push(event.rawUrl);
+  }
+
+  for (const candidate of candidates) {
+    const prefixMatch = candidate.match(/\.netlify\/functions\/[^/]+/);
+    if (!prefixMatch) {
+      continue;
+    }
+    const matchText = prefixMatch[0];
+    const start =
+      typeof prefixMatch.index === 'number'
+        ? prefixMatch.index
+        : candidate.indexOf(matchText);
+    if (start === -1) {
+      continue;
+    }
+    let trimmed = candidate.slice(start + matchText.length);
+    const fragmentIndex = trimmed.search(/[?#]/);
+    if (fragmentIndex !== -1) {
+      trimmed = trimmed.slice(0, fragmentIndex);
+    }
+    if (!trimmed) {
+      return '';
+    }
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  }
+
+  return candidates[0] || '';
 }
 
 function linkFilter(field, id) {
@@ -575,3 +599,5 @@ exports.handler = async (event) => {
     return errorResponse(error);
   }
 };
+
+exports._normalisePath = normalisePath;
