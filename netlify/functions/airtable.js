@@ -261,15 +261,65 @@ function parseBody(event) {
 }
 
 function normalisePath(event) {
-  const path = event.path || '';
-  const prefixMatch = path.match(/\.netlify\/functions\/[^/]+/);
-  if (!prefixMatch) return path;
-  const start = prefixMatch.index ?? 0;
-  const trimmed = path.slice(start + prefixMatch[0].length);
-  if (!trimmed) {
+  const seen = new Set();
+  const candidates = [];
+  const addCandidate = (value) => {
+    if (!value || typeof value !== 'string' || seen.has(value)) {
+      return;
+    }
+    seen.add(value);
+    candidates.push(value);
+  };
+
+  addCandidate(event.rawUrl);
+  addCandidate(event.rawPath);
+  addCandidate(event.path);
+
+  const headers = event.headers || {};
+  addCandidate(headers['x-nf-original-pathname']);
+  addCandidate(headers['x-nf-original-uri']);
+  addCandidate(headers['x-original-uri']);
+
+  const requestContext = event.requestContext || {};
+  addCandidate(requestContext.path);
+  if (requestContext.http) {
+    addCandidate(requestContext.http.path);
+    addCandidate(requestContext.http.rawPath);
+  }
+
+  let sawRootMatch = false;
+
+  for (const candidate of candidates) {
+    const prefixMatch = candidate.match(/\.netlify\/functions\/[^/?#]+/);
+    if (!prefixMatch) {
+      continue;
+    }
+    const matchText = prefixMatch[0];
+    const start =
+      typeof prefixMatch.index === 'number'
+        ? prefixMatch.index
+        : candidate.indexOf(matchText);
+    if (start === -1) {
+      continue;
+    }
+    let trimmed = candidate.slice(start + matchText.length);
+    const fragmentIndex = trimmed.search(/[?#]/);
+    if (fragmentIndex !== -1) {
+      trimmed = trimmed.slice(0, fragmentIndex);
+    }
+    trimmed = trimmed.trim();
+    if (!trimmed) {
+      sawRootMatch = true;
+      continue;
+    }
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  }
+
+  if (sawRootMatch) {
     return '';
   }
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+
+  return candidates[0] || '';
 }
 
 function linkFilter(field, id) {
@@ -575,3 +625,5 @@ exports.handler = async (event) => {
     return errorResponse(error);
   }
 };
+
+exports._normalisePath = normalisePath;
