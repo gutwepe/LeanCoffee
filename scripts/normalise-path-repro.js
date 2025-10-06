@@ -49,4 +49,11 @@ assert.strictEqual(
   _normalisePath({ path: '/.netlify/functions/airtable/topics?foo=bar' }),
   '/topics'
 );
+assert.strictEqual(
+  _normalisePath({
+    path: '',
+    rawUrl: 'https://example.com/.netlify/functions/airtable/sessions?foo=bar',
+  }),
+  '/sessions'
+);
 console.log('Additional normalisePath assertions passed');

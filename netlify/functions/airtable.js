@@ -261,26 +261,39 @@ function parseBody(event) {
 }
 
 function normalisePath(event) {
-  const path = event.path || '';
-  const prefixMatch = path.match(/\.netlify\/functions\/[^/]+/);
-  if (!prefixMatch) return path;
-  const matchText = prefixMatch[0];
-  const start =
-    typeof prefixMatch.index === 'number'
-      ? prefixMatch.index
-      : path.indexOf(matchText);
-  if (start === -1) {
-    return path;
+  const candidates = [];
+  if (event.path) {
+    candidates.push(event.path);
   }
-  let trimmed = path.slice(start + matchText.length);
-  const fragmentIndex = trimmed.search(/[?#]/);
-  if (fragmentIndex !== -1) {
-    trimmed = trimmed.slice(0, fragmentIndex);
+  if (event.rawUrl && !candidates.includes(event.rawUrl)) {
+    candidates.push(event.rawUrl);
   }
-  if (!trimmed) {
-    return '';
+
+  for (const candidate of candidates) {
+    const prefixMatch = candidate.match(/\.netlify\/functions\/[^/]+/);
+    if (!prefixMatch) {
+      continue;
+    }
+    const matchText = prefixMatch[0];
+    const start =
+      typeof prefixMatch.index === 'number'
+        ? prefixMatch.index
+        : candidate.indexOf(matchText);
+    if (start === -1) {
+      continue;
+    }
+    let trimmed = candidate.slice(start + matchText.length);
+    const fragmentIndex = trimmed.search(/[?#]/);
+    if (fragmentIndex !== -1) {
+      trimmed = trimmed.slice(0, fragmentIndex);
+    }
+    if (!trimmed) {
+      return '';
+    }
+    return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   }
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+
+  return candidates[0] || '';
 }
 
 function linkFilter(field, id) {
