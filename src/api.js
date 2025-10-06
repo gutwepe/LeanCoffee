@@ -101,6 +101,13 @@ async function updateTopic(topicId, data, options = {}) {
   return apiRequest('PATCH', `/topics/${topicId}`, { baseUrl: options.baseUrl, body: data });
 }
 
+async function updateBoard(boardId, data, options = {}) {
+  if (!boardId) {
+    throw new Error('boardId is required to update a board');
+  }
+  return apiRequest('PATCH', `/boards/${boardId}`, { baseUrl: options.baseUrl, body: data });
+}
+
 async function createVote(data, options = {}) {
   return apiRequest('POST', '/votes', { baseUrl: options.baseUrl, body: data });
 }
@@ -130,6 +137,7 @@ module.exports = {
   getSession,
   createTopic,
   updateTopic,
+  updateBoard,
   createVote,
   deleteVote,
   createUser,
