@@ -261,36 +261,16 @@ function parseBody(event) {
 }
 
 function normalisePath(event) {
-  const seen = new Set();
   const candidates = [];
-  const addCandidate = (value) => {
-    if (!value || typeof value !== 'string' || seen.has(value)) {
-      return;
-    }
-    seen.add(value);
-    candidates.push(value);
-  };
-
-  addCandidate(event.rawUrl);
-  addCandidate(event.rawPath);
-  addCandidate(event.path);
-
-  const headers = event.headers || {};
-  addCandidate(headers['x-nf-original-pathname']);
-  addCandidate(headers['x-nf-original-uri']);
-  addCandidate(headers['x-original-uri']);
-
-  const requestContext = event.requestContext || {};
-  addCandidate(requestContext.path);
-  if (requestContext.http) {
-    addCandidate(requestContext.http.path);
-    addCandidate(requestContext.http.rawPath);
+  if (event.path) {
+    candidates.push(event.path);
+  }
+  if (event.rawUrl && !candidates.includes(event.rawUrl)) {
+    candidates.push(event.rawUrl);
   }
 
-  let sawRootMatch = false;
-
   for (const candidate of candidates) {
-    const prefixMatch = candidate.match(/\.netlify\/functions\/[^/?#]+/);
+    const prefixMatch = candidate.match(/\.netlify\/functions\/[^/]+/);
     if (!prefixMatch) {
       continue;
     }
@@ -307,16 +287,10 @@ function normalisePath(event) {
     if (fragmentIndex !== -1) {
       trimmed = trimmed.slice(0, fragmentIndex);
     }
-    trimmed = trimmed.trim();
     if (!trimmed) {
-      sawRootMatch = true;
-      continue;
+      return '';
     }
     return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  }
-
-  if (sawRootMatch) {
-    return '';
   }
 
   return candidates[0] || '';

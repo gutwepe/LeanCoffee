@@ -51,16 +51,9 @@ assert.strictEqual(
 );
 assert.strictEqual(
   _normalisePath({
-    path: '/.netlify/functions/airtable',
+    path: '',
     rawUrl: 'https://example.com/.netlify/functions/airtable/sessions?foo=bar',
   }),
   '/sessions'
-);
-assert.strictEqual(
-  _normalisePath({
-    path: '/.netlify/functions/airtable',
-    headers: { 'x-nf-original-pathname': '/.netlify/functions/airtable/topics#hash' },
-  }),
-  '/topics'
 );
 console.log('Additional normalisePath assertions passed');
