@@ -260,16 +260,106 @@ function parseBody(event) {
   }
 }
 
+const FUNCTION_PREFIX = '/.netlify/functions/airtable';
+
 function normalisePath(event) {
-  const path = event.path || '';
-  const prefixMatch = path.match(/\.netlify\/functions\/[^/]+/);
-  if (!prefixMatch) return path;
-  const start = prefixMatch.index ?? 0;
-  const trimmed = path.slice(start + prefixMatch[0].length);
-  if (!trimmed) {
+  const seen = new Set();
+  const candidates = [];
+  const addCandidate = (value) => {
+    if (!value || typeof value !== 'string' || seen.has(value)) {
+      return;
+    }
+    seen.add(value);
+    candidates.push(value);
+  };
+
+  addCandidate(event.rawUrl);
+  addCandidate(event.rawPath);
+  addCandidate(event.path);
+
+  const headers = event.headers || {};
+  addCandidate(headers['x-nf-original-pathname']);
+  addCandidate(headers['x-nf-original-uri']);
+  addCandidate(headers['x-original-uri']);
+
+  const requestContext = event.requestContext || {};
+  addCandidate(requestContext.path);
+  if (requestContext.http) {
+    addCandidate(requestContext.http.path);
+    addCandidate(requestContext.http.rawPath);
+  }
+
+  let sawRootMatch = false;
+
+  for (const candidate of candidates) {
+    let working = candidate;
+    if (working.includes('://')) {
+      try {
+        const url = new URL(working);
+        working = url.pathname;
+      } catch (error) {
+        const schemeIndex = working.indexOf('://');
+        if (schemeIndex !== -1) {
+          const pathStart = working.indexOf('/', schemeIndex + 3);
+          working = pathStart !== -1 ? working.slice(pathStart) : '';
+        }
+      }
+    }
+
+    if (!working) {
+      continue;
+    }
+
+    const prefixIndex = working.indexOf(FUNCTION_PREFIX);
+    if (prefixIndex === -1) {
+      continue;
+    }
+
+    let remainder = working.slice(prefixIndex + FUNCTION_PREFIX.length);
+    if (!remainder) {
+      sawRootMatch = true;
+      continue;
+    }
+
+    const fragmentIndex = remainder.search(/[?#]/);
+    if (fragmentIndex !== -1) {
+      remainder = remainder.slice(0, fragmentIndex);
+    }
+
+    remainder = remainder.trim();
+    if (!remainder) {
+      sawRootMatch = true;
+      continue;
+    }
+
+    const withoutLeading = remainder.replace(/^\/+/, '');
+    let decoded = withoutLeading;
+    try {
+      decoded = decodeURIComponent(withoutLeading);
+    } catch (error) {
+      // ignore decoding failures and fall back to the raw remainder
+    }
+
+    decoded = decoded.replace(/^\/+/, '');
+    if (!decoded) {
+      sawRootMatch = true;
+      continue;
+    }
+
+    const normalised = `/${decoded}`;
+    if (normalised === '/') {
+      sawRootMatch = true;
+      continue;
+    }
+
+    return normalised;
+  }
+
+  if (sawRootMatch) {
     return '';
   }
-  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+
+  return candidates[0] || '';
 }
 
 function linkFilter(field, id) {
@@ -575,3 +665,5 @@ exports.handler = async (event) => {
     return errorResponse(error);
   }
 };
+
+exports._normalisePath = normalisePath;
