@@ -1,4 +1,4 @@
-const AIRTABLE_API_BASE = 'https://api.airtable.com/v0';
+const AIRTABLE_API_BASE = process.env.AIRTABLE_API_BASE_URL || 'https://api.airtable.com/v0';
 const RETRYABLE_STATUS = 429;
 const MAX_RETRIES = 3;
 const RETRY_BACKOFF_MS = 500;

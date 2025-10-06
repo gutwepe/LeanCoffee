@@ -37,6 +37,10 @@ function can authenticate with Airtable and find the relevant tables.
 | `COMMENTS_TABLE_ID` | Table ID for comments |
 | `USERS_TABLE_ID` | Table ID for users |
 
+You can optionally set `AIRTABLE_API_BASE_URL` when running integration tests
+against a mock server. It defaults to Airtable's public API origin
+(`https://api.airtable.com/v0`).
+
 ### Local development
 
 1. Install the Netlify CLI (`npm install -g netlify-cli`).
