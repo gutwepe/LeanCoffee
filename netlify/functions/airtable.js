@@ -264,8 +264,19 @@ function normalisePath(event) {
   const path = event.path || '';
   const prefixMatch = path.match(/\.netlify\/functions\/[^/]+/);
   if (!prefixMatch) return path;
-  const start = prefixMatch.index ?? 0;
-  const trimmed = path.slice(start + prefixMatch[0].length);
+  const matchText = prefixMatch[0];
+  const start =
+    typeof prefixMatch.index === 'number'
+      ? prefixMatch.index
+      : path.indexOf(matchText);
+  if (start === -1) {
+    return path;
+  }
+  let trimmed = path.slice(start + matchText.length);
+  const fragmentIndex = trimmed.search(/[?#]/);
+  if (fragmentIndex !== -1) {
+    trimmed = trimmed.slice(0, fragmentIndex);
+  }
   if (!trimmed) {
     return '';
   }
@@ -575,3 +586,5 @@ exports.handler = async (event) => {
     return errorResponse(error);
   }
 };
+
+exports._normalisePath = normalisePath;
