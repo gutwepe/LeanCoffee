@@ -9,86 +9,198 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body>
-  <header class="app-header">
-    <div>
-      <h1>Lean Coffee Board</h1>
-      <p class="tagline">Plan discussions collaboratively, vote together, and keep conversations focused.</p>
+<body class="theme-dark">
+  <div class="ambient-scene" aria-hidden="true">
+    <div class="scene-inner">
+      <div class="menu-board">
+        <div class="menu-header">
+          <span class="menu-title">COFFEE</span>
+          <span class="menu-divider"></span>
+          <span class="menu-sub">Tea · Pastries</span>
+        </div>
+        <ul class="menu-items">
+          <li><span>House Brew</span><span>☕</span></li>
+          <li><span>Golden Latte</span><span>✨</span></li>
+          <li><span>Morning Standup</span><span>⏰</span></li>
+        </ul>
+      </div>
+      <div class="bulletin-strip">
+        <span class="note"></span>
+        <span class="note"></span>
+        <span class="note"></span>
+      </div>
+      <div class="espresso-machine">
+        <div class="machine-head"></div>
+        <div class="portafilter"></div>
+        <div class="steam"></div>
+        <div class="cup"></div>
+      </div>
+      <div class="counter"></div>
     </div>
-    <div class="session-controls">
-      <label class="vote-budget" for="voteBudget">Vote budget per participant</label>
-      <input type="number" id="voteBudget" min="1" max="20" value="5" />
-      <button id="resetSession" class="secondary">Reset Session</button>
-      <button id="exportSession" class="secondary">Export Notes</button>
-    </div>
-  </header>
+  </div>
 
-  <main>
-    <section class="create-topic">
-      <h2>Propose a topic</h2>
-      <form id="topicForm" autocomplete="off">
-        <div class="field">
-          <label for="topicTitle">Title</label>
-          <input type="text" id="topicTitle" name="title" placeholder="e.g. How do we improve release quality?" required />
+  <main class="app-shell">
+    <section class="control-panel" aria-label="Session lobby">
+      <header class="panel-header">
+        <h1>Lean Coffee</h1>
+        <p>Set the vibe, share a session, and invite the crew to collaborate in real time.</p>
+      </header>
+
+      <div class="panel-controls">
+        <button type="button" class="panel-toggle" id="darkModeToggle" aria-pressed="true">
+          <span class="toggle-icon" aria-hidden="true">🌙</span>
+          <span class="toggle-copy">
+            <span class="toggle-title">Dark mode</span>
+            <span class="toggle-caption" id="darkModeCaption">Cozy lighting on</span>
+          </span>
+          <span class="toggle-switch is-active" aria-hidden="true"></span>
+        </button>
+
+        <button type="button" class="panel-toggle" id="themePicker">
+          <span class="toggle-icon" aria-hidden="true">🎨</span>
+          <span class="toggle-copy">
+            <span class="toggle-title">Custom theme</span>
+            <span class="toggle-caption">Blend your own palette</span>
+          </span>
+          <span class="toggle-switch" aria-hidden="true"></span>
+        </button>
+        <input type="color" id="themeColor" value="#f4a261" hidden>
+      </div>
+
+      <section class="panel-announcements" aria-labelledby="announcementsHeading">
+        <div class="panel-section-title">
+          <span class="panel-icon" aria-hidden="true">📣</span>
+          <h2 id="announcementsHeading">Announcements</h2>
         </div>
-        <div class="field">
-          <label for="topicDescription">Context (optional)</label>
-          <textarea id="topicDescription" name="description" rows="2" placeholder="Add background, goals, or a guiding question"></textarea>
+        <p class="panel-description">Post reminders, wins, or kudos to keep everyone in the loop.</p>
+        <button type="button" class="panel-action" id="announcementBoard">Bulletin board</button>
+      </section>
+
+      <section class="session-launcher" aria-labelledby="sessionHeading">
+        <div class="panel-section-title">
+          <span class="panel-icon" aria-hidden="true">☕</span>
+          <h2 id="sessionHeading">Live session</h2>
         </div>
-        <button type="submit" class="primary">Add topic</button>
-      </form>
-      <p class="vote-availability">Remaining votes for you: <span id="votesRemaining">5</span></p>
+        <p class="session-message" id="sessionStatus">You're working solo.</p>
+        <p class="session-subtext" id="sessionDetail">Start a session to invite collaborators or join with a code.</p>
+        <button type="button" class="primary panel-primary" id="startSession">Start a new session</button>
+
+        <div class="session-share" id="sessionShare" hidden>
+          <div class="session-code">
+            <span class="code-label">Session code</span>
+            <span class="code-value" id="sessionCodeDisplay">—</span>
+          </div>
+          <label class="field">
+            <span>Share link</span>
+            <div class="share-row">
+              <input type="text" id="shareLink" readonly />
+              <button type="button" class="secondary" id="copyShareLink">Copy</button>
+            </div>
+          </label>
+        </div>
+
+        <form id="joinForm" class="join-form" autocomplete="off">
+          <label for="joinCode">Join with a code</label>
+          <div class="join-row">
+            <input type="text" id="joinCode" name="joinCode" placeholder="e.g. brew-842" />
+            <button type="submit" class="secondary">Join</button>
+          </div>
+        </form>
+      </section>
     </section>
 
-    <section class="board" aria-label="Lean coffee board">
-      <article class="column" aria-labelledby="todoHeading">
-        <header>
-          <h2 id="todoHeading">To Discuss</h2>
-          <p class="column-subtitle">Topics proposed by the group</p>
-        </header>
-        <div class="column-content" id="todoColumn" role="list"></div>
-      </article>
+    <section class="board-wrapper" aria-label="Lean Coffee board">
+      <header class="board-header">
+        <div>
+          <h2>Session board</h2>
+          <p class="board-tagline">Capture ideas, vote together, and keep conversations focused.</p>
+        </div>
+        <div class="session-controls">
+          <label class="vote-budget" for="voteBudget">Vote budget</label>
+          <input type="number" id="voteBudget" min="1" max="20" value="5" />
+          <button id="resetSession" class="secondary">Reset Session</button>
+          <button id="exportSession" class="secondary">Export Notes</button>
+        </div>
+      </header>
 
-      <article class="column" aria-labelledby="doingHeading">
-        <header>
-          <h2 id="doingHeading">Discussing</h2>
-          <div class="active-topic" id="activeTopicPanel" hidden>
-            <span class="active-label">Timer</span>
-            <span id="timerDisplay" aria-live="polite">05:00</span>
-            <label class="timebox-picker" for="timeboxLength">
-              <span>Timebox length</span>
-              <select id="timeboxLength">
-                <option value="180">3 min</option>
-                <option value="300" selected>5 min</option>
-                <option value="420">7 min</option>
-                <option value="600">10 min</option>
-              </select>
-            </label>
-            <div class="timer-controls">
-              <button id="startTimer" class="primary">Start</button>
-              <button id="pauseTimer" class="secondary">Pause</button>
-              <button id="resetTimer" class="secondary">Reset</button>
-              <button id="extendTimer" class="secondary">+2 min</button>
-            </div>
+      <section class="create-topic">
+        <h3>Propose a topic</h3>
+        <form id="topicForm" autocomplete="off">
+          <div class="field">
+            <label for="topicTitle">Title</label>
+            <input type="text" id="topicTitle" name="title" placeholder="e.g. How do we improve release quality?" required />
           </div>
-        </header>
-        <div class="column-content" id="doingColumn" role="list"></div>
-      </article>
+          <div class="field">
+            <label for="topicDescription">Context (optional)</label>
+            <textarea id="topicDescription" name="description" rows="2" placeholder="Add background, goals, or a guiding question"></textarea>
+          </div>
+          <button type="submit" class="primary">Add topic</button>
+        </form>
+        <p class="vote-availability">Your remaining votes: <span id="votesRemaining">5</span></p>
+      </section>
 
-      <article class="column" aria-labelledby="doneHeading">
-        <header>
-          <h2 id="doneHeading">Discussed</h2>
-          <p class="column-subtitle">Capture decisions, insights, and follow-up actions</p>
-        </header>
-        <div class="column-content" id="doneColumn" role="list"></div>
-      </article>
+      <section class="board" aria-label="Lean coffee board columns">
+        <article class="column" aria-labelledby="todoHeading">
+          <header>
+            <h3 id="todoHeading">To Discuss</h3>
+            <p class="column-subtitle">Ideas and prompts queued up</p>
+          </header>
+          <div class="column-content" id="todoColumn" role="list"></div>
+        </article>
+
+        <article class="column" aria-labelledby="doingHeading">
+          <header>
+            <h3 id="doingHeading">Discussing</h3>
+            <div class="active-topic" id="activeTopicPanel" hidden>
+              <span class="active-label">Timer</span>
+              <span id="timerDisplay" aria-live="polite">05:00</span>
+              <label class="timebox-picker" for="timeboxLength">
+                <span>Timebox length</span>
+                <select id="timeboxLength">
+                  <option value="180">3 min</option>
+                  <option value="300" selected>5 min</option>
+                  <option value="420">7 min</option>
+                  <option value="600">10 min</option>
+                </select>
+              </label>
+              <div class="timer-controls">
+                <button id="startTimer" class="primary">Start</button>
+                <button id="pauseTimer" class="secondary">Pause</button>
+                <button id="resetTimer" class="secondary">Reset</button>
+                <button id="extendTimer" class="secondary">+2 min</button>
+              </div>
+            </div>
+          </header>
+          <div class="column-content" id="doingColumn" role="list"></div>
+        </article>
+
+        <article class="column" aria-labelledby="doneHeading">
+          <header>
+            <h3 id="doneHeading">Discussed</h3>
+            <p class="column-subtitle">Capture decisions and follow ups</p>
+          </header>
+          <div class="column-content" id="doneColumn" role="list"></div>
+        </article>
+      </section>
     </section>
   </main>
+
+  <nav class="bottom-nav" aria-label="Quick actions">
+    <button type="button" aria-label="Home" class="nav-btn">
+      <span aria-hidden="true">🏠</span>
+    </button>
+    <button type="button" aria-label="Board" class="nav-btn is-active">
+      <span aria-hidden="true">☕</span>
+    </button>
+    <button type="button" aria-label="Profile" class="nav-btn">
+      <span aria-hidden="true">🙂</span>
+    </button>
+  </nav>
 
   <template id="topicTemplate">
     <article class="topic-card" role="listitem">
       <header class="topic-header">
-        <h3 class="topic-title"></h3>
+        <h4 class="topic-title"></h4>
         <div class="vote-chip" aria-live="polite">
           <button class="vote-btn" type="button" title="Toggle vote" aria-pressed="false">
             <span class="vote-label">Vote</span>
