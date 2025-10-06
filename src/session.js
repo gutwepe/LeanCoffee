@@ -2,6 +2,7 @@ const {
   getSession,
   createTopic,
   updateTopic,
+  updateBoard,
   createVote,
   deleteVote,
   createUser,
@@ -414,6 +415,34 @@ function saveTopicNotes(topicId, notes, options = {}) {
   return applyTopicPatch(topicId, { notes }, base);
 }
 
+async function saveBoardPreferences(preferences = {}, options = {}) {
+  const boardId = options.boardId || state.board?.id;
+  if (!boardId) {
+    throw new Error('Cannot update board preferences without an active board');
+  }
+
+  const base = determineBaseUrl(options.baseUrl);
+  const previousBoard = state.board ? { ...state.board } : null;
+  const optimisticBoard = previousBoard
+    ? { ...previousBoard, ...preferences }
+    : { id: boardId, ...preferences };
+
+  state.board = optimisticBoard;
+  notify();
+
+  try {
+    const updated = await updateBoard(boardId, preferences, { baseUrl: base });
+    const nextBoard = updated ? { ...optimisticBoard, ...updated } : optimisticBoard;
+    state.board = nextBoard;
+    notify();
+    return nextBoard;
+  } catch (error) {
+    state.board = previousBoard;
+    notify();
+    throw error;
+  }
+}
+
 async function refreshSessionData(options = {}) {
   const lookup = state.sessionLookup;
   if (!lookup) {
@@ -500,6 +529,7 @@ module.exports = {
   moveToStatus,
   completeTopic,
   saveTopicNotes,
+  saveBoardPreferences,
   refreshSessionData,
   startPolling,
   stopPolling,
