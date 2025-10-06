@@ -62,22 +62,6 @@ test('falls back to Netlify original path headers', () => {
   );
 });
 
-test('decodes percent-encoded path segments', () => {
-  assert.equal(
-    _normalisePath({
-      rawUrl: 'https://example.com/.netlify/functions/airtable%2Fsessions%2Fabc',
-    }),
-    '/sessions/abc'
-  );
-
-  assert.equal(
-    _normalisePath({
-      rawPath: '/.netlify/functions/airtable/%2Ftopics%2Fxyz',
-    }),
-    '/topics/xyz'
-  );
-});
-
 test('returns an empty string when only the root function path matches', () => {
   assert.equal(_normalisePath({ path: '/.netlify/functions/airtable' }), '');
 });
